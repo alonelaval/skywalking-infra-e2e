@@ -1,4 +1,3 @@
-//
 // Licensed to Apache Software Foundation (ASF) under one or more contributor
 // license agreements. See the NOTICE file distributed with
 // this work for additional information regarding copyright
@@ -7,7 +6,7 @@
 // not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing,
 // software distributed under the License is distributed on an
@@ -33,7 +32,7 @@ import (
 var Trigger = &cobra.Command{
 	Use: "trigger",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		action, err := CreateTriggerAction()
+		action, err := CreateTriggerAction(config.GlobalConfig.E2EConfig.Trigger)
 		if err != nil {
 			return fmt.Errorf("[Trigger] %v", err)
 		}
@@ -54,12 +53,42 @@ var Trigger = &cobra.Command{
 	},
 }
 
-func CreateTriggerAction() (trigger.Action, error) {
+var Triggers = &cobra.Command{
+	Use: "triggers",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		var acts []trigger.Action
+		for _, v := range config.GlobalConfig.E2EConfig.Triggers {
+			action, err := CreateTriggerAction(v)
+			if err != nil {
+				return fmt.Errorf("[Trigger] %v", err)
+			}
+			if action == nil {
+				return nil
+			}
+			if err := <-action.Do(); err != nil {
+				return err
+			}
+			acts = append(acts, action)
+		}
+
+		wg := sync.WaitGroup{}
+		wg.Add(1)
+		util.AddShutDownHook(wg.Done)
+		wg.Wait()
+
+		for _, act := range acts {
+			act.Stop()
+		}
+		return nil
+	},
+}
+
+func CreateTriggerAction(cnf config.Trigger) (trigger.Action, error) {
 	if err := config.GlobalConfig.Error; err != nil {
 		return nil, err
 	}
 
-	switch t := config.GlobalConfig.E2EConfig.Trigger; t.Action {
+	switch t := cnf; t.Action {
 	case "":
 		return nil, nil
 	case constant.ActionHTTP:

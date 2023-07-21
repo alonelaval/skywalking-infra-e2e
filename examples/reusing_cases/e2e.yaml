@@ -31,6 +31,19 @@ trigger:
   url: http://127.0.0.1:${ui_8080}/
   method: GET
 
+triggers:
+  - action: http
+    interval: 3s
+    times: 5
+    url: http://www.jd.com
+    method: GET
+  - action: http
+    interval: 3s
+    times: 5
+    url: http://www.baidu.com
+    method: GET
+
+
 verify:
   # verify with retry strategy
   retry:

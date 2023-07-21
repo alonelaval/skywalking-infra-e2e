@@ -30,10 +30,11 @@ import (
 
 // E2EConfig corresponds to configuration file e2e.yaml.
 type E2EConfig struct {
-	Setup   Setup   `yaml:"setup"`
-	Cleanup Cleanup `yaml:"cleanup"`
-	Trigger Trigger `yaml:"trigger"`
-	Verify  Verify  `yaml:"verify"`
+	Setup    Setup     `yaml:"setup"`
+	Cleanup  Cleanup   `yaml:"cleanup"`
+	Trigger  Trigger   `yaml:"trigger"`
+	Triggers []Trigger `yaml:"triggers"`
+	Verify   Verify    `yaml:"verify"`
 }
 
 type Setup struct {
