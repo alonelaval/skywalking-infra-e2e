@@ -17,6 +17,7 @@
 package commands
 
 import (
+	"github.com/apache/skywalking-infra-e2e/commands/test"
 	"os"
 
 	"github.com/sirupsen/logrus"
@@ -84,6 +85,7 @@ func ExpandPathAndCreate(path string) (string, error) {
 func Execute() error {
 	Root.AddCommand(run.Run)
 	Root.AddCommand(setup.Setup)
+	Root.AddCommand(test.Test)
 	Root.AddCommand(trigger.Trigger)
 	Root.AddCommand(trigger.Triggers)
 	Root.AddCommand(verify.Verify)

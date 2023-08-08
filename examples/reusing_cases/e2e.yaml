@@ -24,35 +24,54 @@ cleanup:
   # always never success failure
   on: always
 
-trigger:
-  action: http
-  interval: 3s
-  times: 5
-  url: http://127.0.0.1:${ui_8080}/
-  method: GET
+#trigger:
+#  action: http
+#  interval: 3s
+#  times: 5
+#  url: http://127.0.0.1:${ui_8080}/
+#  method: GET
+#
+#triggers:
+#  - action: http
+#    interval: 3s
+#    times: 5
+#    url: http://www.jd.com
+#    method: GET
+#  - action: http
+#    interval: 3s
+#    times: 5
+#    url: http://www.baidu.com
+#    method: GET
 
-triggers:
-  - action: http
+test:
+  - name: test
+    action: http
     interval: 3s
     times: 5
-    url: http://www.jd.com
+    url: http://10.0.108.47:8028/tenant/v1/tenant/list/?pageNum=10&currentPage=1
     method: GET
-  - action: http
-    interval: 3s
-    times: 5
-    url: http://www.baidu.com
-    method: GET
+    body:
+    cases:
+      - name: case1
+        expected: ../../test/verify/3.expected.yaml
+        headers:
+      - query: swctl --display yaml --base-url=http://127.0.0.1:${oap_12800}/graphql service ls
+        name: case2
+        expected: ../../test/verify/3.expected.yaml
+        headers:
+          ddd: ttt
+          ttt: 111
 
 
-verify:
-  # verify with retry strategy
-  retry:
-    # max retry count
-    count: 10
-    # the interval between two attempts, e.g. 10s, 1m.
-    interval: 10s
-  cases:
-    - includes:
-        - simple-cases.yaml
-    - query: swctl --display yaml --base-url=http://127.0.0.1:${oap_12800}/graphql service ls
-      expected: ../../test/verify/3.expected.yaml
+#verify:
+#  # verify with retry strategy
+#  retry:
+#    # max retry count
+#    count: 10
+#    # the interval between two attempts, e.g. 10s, 1m.
+#    interval: 10s
+#  cases:
+#    - includes:
+#        - simple-cases.yaml
+#    - query: swctl --display yaml --base-url=http://127.0.0.1:${oap_12800}/graphql service ls
+#      expected: ../../test/verify/3.expected.yaml

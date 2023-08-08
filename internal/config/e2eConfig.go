@@ -34,6 +34,7 @@ type E2EConfig struct {
 	Cleanup  Cleanup   `yaml:"cleanup"`
 	Trigger  Trigger   `yaml:"trigger"`
 	Triggers []Trigger `yaml:"triggers"`
+	Test     []Test    `yaml:"test""`
 	Verify   Verify    `yaml:"verify"`
 }
 
@@ -126,6 +127,18 @@ type Wait struct {
 }
 
 type Trigger struct {
+	Action     string            `yaml:"action"`
+	Interval   string            `yaml:"interval"`
+	Times      int               `yaml:"times"`
+	URL        string            `yaml:"url"`
+	Method     string            `yaml:"method"`
+	Body       string            `yaml:"body"`
+	Headers    map[string]string `yaml:"headers"`
+	VerifyCase VerifyCase        `yaml:"verifyCase"`
+}
+
+type Test struct {
+	Name     string            `yaml:"name"`
 	Action   string            `yaml:"action"`
 	Interval string            `yaml:"interval"`
 	Times    int               `yaml:"times"`
@@ -133,14 +146,17 @@ type Trigger struct {
 	Method   string            `yaml:"method"`
 	Body     string            `yaml:"body"`
 	Headers  map[string]string `yaml:"headers"`
+	Case     []VerifyCase      `yaml:"cases"`
 }
 
 type VerifyCase struct {
-	Name     string   `yaml:"name"`
-	Query    string   `yaml:"query"`
-	Actual   string   `yaml:"actual"`
-	Expected string   `yaml:"expected"`
-	Includes []string `yaml:"includes"`
+	Name     string            `yaml:"name"`
+	Query    string            `yaml:"query"`
+	Actual   string            `yaml:"actual"`
+	Get      string            `yaml:"get"`
+	Expected string            `yaml:"expected"`
+	Headers  map[string]string `yaml:"headers"`
+	Includes []string          `yaml:"includes"`
 }
 
 type VerifyRetryStrategy struct {

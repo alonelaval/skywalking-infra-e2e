@@ -14,7 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-package trigger
+package test
 
 import (
 	"fmt"
@@ -65,34 +65,39 @@ func NewHTTPAction(intervalStr string, times int, url, method, body string, head
 	}, nil
 }
 
-func (h *httpAction) Do() chan error {
+func (h *httpAction) Do() (chan error, chan http.Header, chan []byte) {
 	t := time.NewTicker(h.interval)
 
 	logger.Log.Infof("trigger will request URL %s %d times with interval %s.", h.url, h.times, h.interval)
 
-	result := make(chan error)
+	errResult := make(chan error)
+	header := make(chan http.Header)
+	body := make(chan []byte)
+
 	sent := false
 	go func() {
 		for {
 			select {
 			case <-t.C:
-				err := h.execute()
+				err, head, b := h.execute()
 
 				// `err == nil`: if no error occurs, everything is OK and send `nil` to the channel to continue.
 				// `h.times == h.executedCount`: reach to the maximum retry count and send the `err`, no matter it's `nil` or not.
 				if !sent && (err == nil || h.times == h.executedCount) {
-					result <- err
+					errResult <- err
+					header <- head
+					body <- b
 					sent = true
 				}
 			case <-h.stopCh:
 				t.Stop()
-				result <- nil
+				errResult <- nil
 				return
 			}
 		}
 	}()
 
-	return result
+	return errResult, header, body
 }
 
 func (h *httpAction) Stop() {
@@ -112,29 +117,30 @@ func (h *httpAction) request() (*http.Request, error) {
 	return request, err
 }
 
-func (h *httpAction) execute() error {
+func (h *httpAction) execute() (error, http.Header, []byte) {
 	req, err := h.request()
 	if err != nil {
 		logger.Log.Errorf("failed to create new request %v", err)
-		return err
+		return err, nil, nil
 	}
 	logger.Log.Debugf("request URL %s the %d time.", h.url, h.executedCount)
 	response, err := h.client.Do(req)
 	h.executedCount++
 	if err != nil {
 		logger.Log.Errorf("do request error %v", err)
-		return err
+		return err, nil, nil
 	}
-	_, _ = io.ReadAll(response.Body)
+	head := response.Header
+	b, _ := io.ReadAll(response.Body)
 
 	_ = response.Body.Close()
 
 	logger.Log.Debugf("do request %v response http code %v", h.url, response.StatusCode)
 	if response.StatusCode == http.StatusOK {
 		logger.Log.Debugf("do http action %+v success.", *h)
-		return nil
+		return nil, head, b
 	}
-	return fmt.Errorf("do request failed, response status code: %d", response.StatusCode)
+	return fmt.Errorf("do request failed, response status code: %d", response.StatusCode), nil, nil
 }
 
 func (h *httpAction) Execute() error {

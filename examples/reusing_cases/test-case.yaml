@@ -1,0 +1,29 @@
+test:
+  - action: http
+    interval: 3s
+    times: 5
+    url: http://www.jd.com
+    method: GET
+    body:
+    cases:
+      - query: swctl --display yaml --base-url=http://127.0.0.1:${oap_12800}/graphql service ls
+        expected: ../../test/verify/3.expected.yaml
+        header:
+          ddd: ttt
+          ttt: 111
+      - query: swctl --display yaml --base-url=http://127.0.0.1:${oap_12800}/graphql service ls
+        expected: ../../test/verify/3.expected.yaml
+        header:
+          ddd: ttt
+          ttt: 111
+
+  - action: http
+    interval: 3s
+    times: 5
+    url: http://www.baidu.com
+    method: GET
+    cases:
+      - expected: ../../test/verify/3.expected.yaml
+        header:
+          ddd: ttt
+          ttt: 111
