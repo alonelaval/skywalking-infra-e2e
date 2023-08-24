@@ -1,12 +1,17 @@
 package test
 
 import (
+	"errors"
 	"fmt"
 	"github.com/apache/skywalking-infra-e2e/internal/components/test"
+	"github.com/apache/skywalking-infra-e2e/internal/components/verifier"
 	"github.com/apache/skywalking-infra-e2e/internal/config"
 	"github.com/apache/skywalking-infra-e2e/internal/constant"
+	"github.com/apache/skywalking-infra-e2e/internal/util"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
+
+	//"gopkg.in/yaml.v2"
 	"net/http"
 )
 
@@ -33,10 +38,23 @@ var Test = &cobra.Command{
 			fmt.Println("yaml---------")
 			fmt.Println(ydata)
 			for _, ca := range v.Case {
-				fmt.Println(ca.Name)
-				if e := checkHead(h, ca.Headers, ca); e != nil {
+				if ca.Get != "" || ca.Actual != "" || ca.Query != "" {
+					continue
+				} else if e := checkHead(h, ca.ExpectedHeaders, ca); e != nil {
 					return e
 				}
+				expectedData, err := util.ReadFileContent(ca.Expected)
+				if err != nil {
+					return fmt.Errorf("failed to read the expected data file: %v", err)
+				}
+				if err = verifier.Verify(ydata, expectedData); err != nil {
+					var me *verifier.MismatchError
+					if errors.As(err, &me) {
+						return fmt.Errorf("failed to verify the output: %s, error:\n%v", "request", me.Error())
+					}
+					return fmt.Errorf("failed to verify the output: %s, error:\n%v", "request", err)
+				}
+
 				//fmt.Println("ddd:" + h.Get("Content-Type"))
 				//y, _ := displayYaml(b)
 			}

@@ -150,13 +150,14 @@ type Test struct {
 }
 
 type VerifyCase struct {
-	Name     string            `yaml:"name"`
-	Query    string            `yaml:"query"`
-	Actual   string            `yaml:"actual"`
-	Get      string            `yaml:"get"`
-	Expected string            `yaml:"expected"`
-	Headers  map[string]string `yaml:"headers"`
-	Includes []string          `yaml:"includes"`
+	Name            string            `yaml:"name"`
+	Query           string            `yaml:"query"`
+	Actual          string            `yaml:"actual"`
+	Get             string            `yaml:"get"`
+	Expected        string            `yaml:"expected"`
+	Headers         map[string]string `yaml:"headers"`
+	ExpectedHeaders map[string]string `yaml:"expectedHeaders"`
+	Includes        []string          `yaml:"includes"`
 }
 
 type VerifyRetryStrategy struct {
