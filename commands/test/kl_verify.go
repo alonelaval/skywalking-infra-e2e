@@ -56,11 +56,11 @@ var Verify = &cobra.Command{
 	Short: "verify if the actual data match the expected data",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if expected != "" {
-			return verifySingleCase(expected, actual, query, get)
+			return verifySingleCase(expected, actual, query, get, nil)
 		}
 
 		// If there is no given flags.
-		return DoVerifyAccordingConfig()
+		return DoVerifyAccordingConfig(nil)
 	},
 }
 
@@ -72,14 +72,19 @@ type verifyInfo struct {
 	failFast   bool
 }
 
-func verifySingleCase(expectedFile, actualFile, query string, get string) error {
+func verifySingleCase(expectedFile, actualFile, query, get string, verifyCase *config.VerifyCase) error {
 	expectedData, err := util.ReadFileContent(expectedFile)
 	if err != nil {
 		return fmt.Errorf("failed to read the expected data file: %v", err)
 	}
 
 	var actualData, sourceName, stderr string
-	if actualFile != "" {
+	var actualHeader map[string]string
+	if verifyCase.ActualData != "" {
+		sourceName = "origin"
+		actualData = verifyCase.ActualData
+		actualHeader = verifyCase.ActualHeader
+	} else if actualFile != "" {
 		sourceName = actualFile
 		actualData, err = util.ReadFileContent(actualFile)
 		if err != nil {
@@ -93,10 +98,19 @@ func verifySingleCase(expectedFile, actualFile, query string, get string) error 
 		}
 	} else if get != "" {
 		sourceName = get
-		actualData, stderr, err = util.ExecuteCommand(query)
+		header, origData, err := getData("GET", get, verifyCase.Headers)
 		if err != nil {
-			return fmt.Errorf("failed to execute the query: %s, output: %s, error: %v", query, actualData, stderr)
+			return fmt.Errorf("failed to execute the get: %s, header: %v, resp: %s, error: %v", get, actualHeader, origData, err)
 		}
+		actualHeader = convertHeaderToMap(header)
+		//actualData, err = convertToYaml(origData)
+		actualData = string(origData)
+		logger.Log.Debugf("response header: %s", actualHeader)
+		logger.Log.Debugf("response data: \n%s", actualData)
+	}
+
+	if err = checkHead(actualHeader, verifyCase.ExpectedHeaders, verifyCase.Name); err != nil {
+		return err
 	}
 
 	if err = verifier.Verify(actualData, expectedData); err != nil {
@@ -121,18 +135,18 @@ func request(method string, url string, m map[string]string) (*http.Request, err
 	return request, err
 }
 
-func getData(method string, url string, m map[string]string) (error, http.Header, []byte) {
+func getData(method string, url string, m map[string]string) (http.Header, []byte, error) {
 	client := &http.Client{}
 	req, err := request(method, url, m)
 	if err != nil {
 		logger.Log.Errorf("failed to create new request %v", err)
-		return err, nil, nil
+		return nil, nil, err
 	}
 
 	response, err := client.Do(req)
 	if err != nil {
 		logger.Log.Errorf("do request error %v", err)
-		return err, nil, nil
+		return nil, nil, err
 	}
 	head := response.Header
 	b, _ := io.ReadAll(response.Body)
@@ -142,9 +156,9 @@ func getData(method string, url string, m map[string]string) (error, http.Header
 	logger.Log.Debugf("do request %v response http code %v", url, response.StatusCode)
 	if response.StatusCode == http.StatusOK {
 		logger.Log.Debugf("do http %+v success.", url)
-		return nil, head, b
+		return head, b, err
 	}
-	return fmt.Errorf("do request failed, response status code: %d", response.StatusCode), nil, nil
+	return nil, nil, fmt.Errorf("do request failed, response status code: %d", response.StatusCode)
 }
 
 // concurrentlyVerifySingleCase verifies a single case in concurrency mode,
@@ -174,7 +188,7 @@ func concurrentlyVerifySingleCase(
 			res.Skip = true
 			return res
 		default:
-			if err := verifySingleCase(v.GetExpected(), v.GetActual(), v.Query, v.Get); err == nil {
+			if err := verifySingleCase(v.GetExpected(), v.GetActual(), v.Query, v.Get, v); err == nil {
 				if current == 0 {
 					res.Msg = fmt.Sprintf("verified %v\n", caseName(v))
 				} else {
@@ -194,8 +208,8 @@ func concurrentlyVerifySingleCase(
 }
 
 // verifyCasesConcurrently verifies the cases concurrently.
-func verifyCasesConcurrently(verify *config.Verify, verifyInfo *verifyInfo) error {
-	res := make([]*output.CaseResult, len(verify.Cases))
+func verifyCasesConcurrently(cases []*config.VerifyCase, verifyInfo *verifyInfo) error {
+	res := make([]*output.CaseResult, len(cases))
 	for i := range res {
 		res[i] = &output.CaseResult{}
 	}
@@ -203,7 +217,7 @@ func verifyCasesConcurrently(verify *config.Verify, verifyInfo *verifyInfo) erro
 	defer cancel()
 
 	var wg sync.WaitGroup
-	for idx := range verify.Cases {
+	for idx := range cases {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
@@ -215,7 +229,7 @@ func verifyCasesConcurrently(verify *config.Verify, verifyInfo *verifyInfo) erro
 				return
 			default:
 				// It's safe to do this, since each goroutine only modifies a single, different, designated slice element.
-				res[i] = concurrentlyVerifySingleCase(ctx, cancel, &verify.Cases[i], verifyInfo)
+				res[i] = concurrentlyVerifySingleCase(ctx, cancel, cases[i], verifyInfo)
 			}
 		}(idx)
 	}
@@ -230,9 +244,9 @@ func verifyCasesConcurrently(verify *config.Verify, verifyInfo *verifyInfo) erro
 }
 
 // verifyCasesSerially verifies the cases serially.
-func verifyCasesSerially(verify *config.Verify, verifyInfo *verifyInfo) (err error) {
+func verifyCasesSerially(cases []*config.VerifyCase, verifyInfo *verifyInfo) (err error) {
 	// A case may be skipped in fail-fast mode, so set it in advance.
-	res := make([]*output.CaseResult, len(verify.Cases))
+	res := make([]*output.CaseResult, len(cases))
 	for i := range res {
 		res[i] = &output.CaseResult{
 			Skip: true,
@@ -246,9 +260,9 @@ func verifyCasesSerially(verify *config.Verify, verifyInfo *verifyInfo) (err err
 		}
 	}()
 
-	for idx := range verify.Cases {
+	for idx := range cases {
 		printer.Start()
-		v := &verify.Cases[idx]
+		v := cases[idx]
 
 		if v.GetExpected() == "" {
 			res[idx].Skip = false
@@ -264,7 +278,7 @@ func verifyCasesSerially(verify *config.Verify, verifyInfo *verifyInfo) (err err
 		}
 
 		for current := 0; current <= verifyInfo.retryCount; current++ {
-			if e := verifySingleCase(v.GetExpected(), v.GetActual(), v.Query, v.Get); e == nil {
+			if e := verifySingleCase(v.GetExpected(), v.GetActual(), v.Query, v.Get, v); e == nil {
 				if current == 0 {
 					res[idx].Msg = fmt.Sprintf("verified %v \n", caseName(v))
 				} else {
@@ -308,7 +322,7 @@ func caseName(v *config.VerifyCase) string {
 }
 
 // DoVerifyAccordingConfig reads cases from the config file and verifies them.
-func DoVerifyAccordingConfig() error {
+func DoVerifyAccordingConfig(cases []*config.VerifyCase) error {
 	if config.GlobalConfig.Error != nil {
 		return config.GlobalConfig.Error
 	}
@@ -322,24 +336,27 @@ func DoVerifyAccordingConfig() error {
 		return err
 	}
 	failFast := e2eConfig.Verify.FailFast
-	caseNumber := len(e2eConfig.Verify.Cases)
-
+	if cases == nil {
+		for _, ca := range e2eConfig.Verify.Cases {
+			cases = append(cases, &ca)
+		}
+	}
+	caseNumber := len(cases)
 	VerifyInfo := verifyInfo{
 		caseNumber,
 		retryCount,
 		interval,
 		failFast,
 	}
-
 	concurrency := e2eConfig.Verify.Concurrency
 	if concurrency {
 		// enable batch output mode when concurrency is enabled
 		printer = output.NewPrinter(true)
-		return verifyCasesConcurrently(&e2eConfig.Verify, &VerifyInfo)
+		return verifyCasesConcurrently(cases, &VerifyInfo)
 	}
 
 	printer = output.NewPrinter(util.BatchMode)
-	return verifyCasesSerially(&e2eConfig.Verify, &VerifyInfo)
+	return verifyCasesSerially(cases, &VerifyInfo)
 }
 
 // TODO remove this in 2.0.0

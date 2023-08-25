@@ -150,14 +150,16 @@ type Test struct {
 }
 
 type VerifyCase struct {
-	Name            string            `yaml:"name"`
-	Query           string            `yaml:"query"`
-	Actual          string            `yaml:"actual"`
+	Name            string `yaml:"name"`
+	Query           string `yaml:"query"`
+	Actual          string `yaml:"actual"`
+	ActualData      string
 	Get             string            `yaml:"get"`
 	Expected        string            `yaml:"expected"`
 	Headers         map[string]string `yaml:"headers"`
 	ExpectedHeaders map[string]string `yaml:"expectedHeaders"`
-	Includes        []string          `yaml:"includes"`
+	ActualHeader    map[string]string
+	Includes        []string `yaml:"includes"`
 }
 
 type VerifyRetryStrategy struct {
@@ -177,6 +179,16 @@ func (v *VerifyCase) GetActual() string {
 // GetExpected resolves the absolute file path of the expected data file.
 func (v *VerifyCase) GetExpected() string {
 	return util.ResolveAbs(v.Expected)
+}
+
+// GetActual resolves the absolute file path of the actual data file.
+func (v *VerifyCase) SetActualData(actualData string) {
+	v.ActualData = actualData
+}
+
+// GetExpected resolves the absolute file path of the expected data file.
+func (v *VerifyCase) SetActualHeader(actualHeader map[string]string) {
+	v.ActualHeader = actualHeader
 }
 
 // parseInterval parses a Duration field with number and string content for compatibility,

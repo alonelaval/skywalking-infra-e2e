@@ -1,13 +1,11 @@
 package test
 
 import (
-	"errors"
 	"fmt"
 	"github.com/apache/skywalking-infra-e2e/internal/components/test"
-	"github.com/apache/skywalking-infra-e2e/internal/components/verifier"
 	"github.com/apache/skywalking-infra-e2e/internal/config"
 	"github.com/apache/skywalking-infra-e2e/internal/constant"
-	"github.com/apache/skywalking-infra-e2e/internal/util"
+	"github.com/apache/skywalking-infra-e2e/internal/logger"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
@@ -35,44 +33,34 @@ var Test = &cobra.Command{
 			h := <-header
 			b := <-body
 			ydata, _ := convertToYaml(b)
-			fmt.Println("yaml---------")
-			fmt.Println(ydata)
-			for _, ca := range v.Case {
-				if ca.Get != "" || ca.Actual != "" || ca.Query != "" {
+			logger.Log.Debugf("response header: %s", h)
+			logger.Log.Debugf("response data: \n%s", ydata)
+			var cases []*config.VerifyCase
+			for i := range v.Case {
+				ca := v.Case[i]
+				cases = append(cases, &ca)
+				if ca.Get != "" || ca.Query != "" {
 					continue
-				} else if e := checkHead(h, ca.ExpectedHeaders, ca); e != nil {
-					return e
 				}
-				expectedData, err := util.ReadFileContent(ca.Expected)
-				if err != nil {
-					return fmt.Errorf("failed to read the expected data file: %v", err)
-				}
-				if err = verifier.Verify(ydata, expectedData); err != nil {
-					var me *verifier.MismatchError
-					if errors.As(err, &me) {
-						return fmt.Errorf("failed to verify the output: %s, error:\n%v", "request", me.Error())
-					}
-					return fmt.Errorf("failed to verify the output: %s, error:\n%v", "request", err)
-				}
-
-				//fmt.Println("ddd:" + h.Get("Content-Type"))
-				//y, _ := displayYaml(b)
+				ca.SetActualHeader(convertHeaderToMap(h))
+				ca.SetActualData(ydata)
 			}
-			//acts = append(acts, action)
+			err = DoVerifyAccordingConfig(cases)
+			if err != nil {
+				return err
+			}
 		}
-
-		//wg := sync.WaitGroup{}
-		//wg.Add(1)
-		//util.AddShutDownHook(wg.Done)
-		//wg.Wait()
-		//
-		//for _, act := range acts {
-		//	act.Stop()
-		//}
 		return nil
 	},
 }
 
+func convertHeaderToMap(header http.Header) map[string]string {
+	m := make(map[string]string)
+	for k, v := range header {
+		m[k] = v[0]
+	}
+	return m
+}
 func convertToYaml(data []byte) (string, error) {
 	bytes, e := JSONToYAML(data)
 	if e != nil {
@@ -82,11 +70,11 @@ func convertToYaml(data []byte) (string, error) {
 	return d, nil
 }
 
-func checkHead(h http.Header, m map[string]string, c config.VerifyCase) error {
-	for k, v := range m {
-		rv := h.Get(k)
+func checkHead(actualHeader map[string]string, expectedHeader map[string]string, name string) error {
+	for k, v := range expectedHeader {
+		rv := actualHeader[k]
 		if rv != v {
-			return fmt.Errorf("case: %s header: %s, expected: %s actual: %s", c.Name, k, v, rv)
+			return fmt.Errorf("case: %s header: %s, expected: %s actual: %s", name, k, v, rv)
 		}
 	}
 	return nil

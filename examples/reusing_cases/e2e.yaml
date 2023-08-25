@@ -52,33 +52,43 @@ test:
     method: GET
     body:
     headers:
-
     cases:
       - name: case1
-        expected: ../../test/verify/user.expected.yaml
-#        expectedHeaders:
-#          ddd: ttt
-#          ttt: 111
-#      - query: swctl --display yaml --base-url=http://127.0.0.1:${oap_12800}/graphql service ls
-#        name: case2
-#        expected: ../../test/verify/3.expected.yaml
-##        expectedHeaders:
-##          ddd: ttt
-##          ttt: 111
-#      - get: http://10.0.108.47:8028/tenant/v1/tenant/list/?pageNum=10&currentPage=1
-#        name: case3
-#        expected: ../../test/verify/3.expected.yaml
+        expected: /Users/hua/koal/devops_workspace/skywalking-infra-e2e/test/verify/user.expected.yaml
+        expectedHeaders:
+          Content-Type: application/json
+      - get: http://127.0.0.1:8028/user/v1/user/serv/detail?workNo=1
+        name: case2
+        expected: /Users/hua/koal/devops_workspace/skywalking-infra-e2e/test/verify/user.expected.yaml
+        expectedHeaders:
+          Content-Type: application/json
+      - query: curl http://127.0.0.1:8028/user/v1/user/serv/detail?workNo=1
+        name: case3
+        expected: /Users/hua/koal/devops_workspace/skywalking-infra-e2e/test/verify/user.expected1.yaml
 #        expectedHeaders:
 #          ddd: ttt
 #          ttt: 111
 
+#  - name: test
+#    action: http
+#    interval: 3s
+#    times: 5
+#    url: http://127.0.0.1:8028/user/v1/user/serv/detail?workNo=1
+#    method: GET
+#    body:
+#    headers:
+#    cases:
+#      - name: case1
+#        expected: /Users/hua/koal/devops_workspace/skywalking-infra-e2e/test/verify/user.expected.yaml
+#        expectedHeaders:
+#          Content-Type: application/json1
 
 
 verify:
   # verify with retry strategy
   retry:
     # max retry count
-    count: 10
+    count: 1
     # the interval between two attempts, e.g. 10s, 1m.
     interval: 10s
 
