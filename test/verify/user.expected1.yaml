@@ -23,7 +23,7 @@ data:
   urlResource: []
   userId: {{ ge .data.userId 0}}
   loginName:  {{ notEmpty .data.loginName }}
-  userName: 开发
+  userName: 开发1
   email:
   userMobile:
   certificateId:

@@ -38,12 +38,14 @@ var Test = &cobra.Command{
 			var cases []*config.VerifyCase
 			for i := range v.Case {
 				ca := v.Case[i]
+				ca.TestName = v.Name
 				cases = append(cases, &ca)
 				if ca.Get != "" || ca.Query != "" {
 					continue
 				}
 				ca.SetActualHeader(convertHeaderToMap(h))
 				ca.SetActualData(ydata)
+
 			}
 			err = DoVerifyAccordingConfig(cases)
 			if err != nil {

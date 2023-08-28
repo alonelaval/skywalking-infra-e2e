@@ -160,6 +160,7 @@ type VerifyCase struct {
 	ExpectedHeaders map[string]string `yaml:"expectedHeaders"`
 	ActualHeader    map[string]string
 	Includes        []string `yaml:"includes"`
+	TestName        string
 }
 
 type VerifyRetryStrategy struct {

@@ -62,7 +62,7 @@ test:
         expected: /Users/hua/koal/devops_workspace/skywalking-infra-e2e/test/verify/user.expected.yaml
         expectedHeaders:
           Content-Type: application/json
-      - query: curl http://127.0.0.1:8028/user/v1/user/serv/detail?workNo=1
+      - query: curl http://127.0.0.1:8028/user/v1/user/serv/detail?workNo=1 |yq -P
         name: case3
         expected: /Users/hua/koal/devops_workspace/skywalking-infra-e2e/test/verify/user.expected1.yaml
 #        expectedHeaders:

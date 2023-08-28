@@ -75,7 +75,7 @@ type verifyInfo struct {
 func verifySingleCase(expectedFile, actualFile, query, get string, verifyCase *config.VerifyCase) error {
 	expectedData, err := util.ReadFileContent(expectedFile)
 	if err != nil {
-		return fmt.Errorf("failed to read the expected data file: %v", err)
+		return fmt.Errorf("TEST[%s]: failed to read the expected data file: %v", verifyCase.TestName, err)
 	}
 
 	var actualData, sourceName, stderr string
@@ -88,26 +88,28 @@ func verifySingleCase(expectedFile, actualFile, query, get string, verifyCase *c
 		sourceName = actualFile
 		actualData, err = util.ReadFileContent(actualFile)
 		if err != nil {
-			return fmt.Errorf("failed to read the actual data file: %v", err)
+			return fmt.Errorf("TEST[%s]: failed to read the actual data file: %v", verifyCase.TestName, err)
 		}
 	} else if query != "" {
 		sourceName = query
 		actualData, stderr, err = util.ExecuteCommand(query)
 		if err != nil {
-			return fmt.Errorf("failed to execute the query: %s, output: %s, error: %v", query, actualData, stderr)
+			return fmt.Errorf("TEST[%s]: failed to execute the query: %s, output: %s, error: %v", verifyCase.TestName, query, actualData, stderr)
 		}
 	} else if get != "" {
 		sourceName = get
 		header, origData, err := getData("GET", get, verifyCase.Headers)
 		if err != nil {
-			return fmt.Errorf("failed to execute the get: %s, header: %v, resp: %s, error: %v", get, actualHeader, origData, err)
+			return fmt.Errorf("TEST[%s]: failed to execute the get: %s, header: %v, resp: %s, error: %v", verifyCase.TestName, get, actualHeader, origData, err)
 		}
 		actualHeader = convertHeaderToMap(header)
 		//actualData, err = convertToYaml(origData)
 		actualData = string(origData)
-		logger.Log.Debugf("response header: %s", actualHeader)
-		logger.Log.Debugf("response data: \n%s", actualData)
+
 	}
+
+	logger.Log.Debugf("TEST[%s]: response header: %s", verifyCase.TestName, actualHeader)
+	logger.Log.Debugf("TEST[%s]: response data: \n%s", verifyCase.TestName, actualData)
 
 	if err = checkHead(actualHeader, verifyCase.ExpectedHeaders, verifyCase.Name); err != nil {
 		return err
@@ -115,9 +117,9 @@ func verifySingleCase(expectedFile, actualFile, query, get string, verifyCase *c
 
 	if err = verifier.Verify(actualData, expectedData); err != nil {
 		if me, ok := err.(*verifier.MismatchError); ok {
-			return fmt.Errorf("failed to verify the output: %s, error:\n%v", sourceName, me.Error())
+			return fmt.Errorf("TEST[%s]: failed to verify the output: %s, error:\n%v", verifyCase.TestName, sourceName, me.Error())
 		}
-		return fmt.Errorf("failed to verify the output: %s, error:\n%v", sourceName, err)
+		return fmt.Errorf("TEST[%s]: failed to verify the output: %s, error:\n%v", verifyCase.TestName, sourceName, err)
 	}
 	return nil
 }
@@ -177,8 +179,8 @@ func concurrentlyVerifySingleCase(
 	}()
 
 	if v.GetExpected() == "" {
-		res.Msg = fmt.Sprintf("failed to verify %v:", caseName(v))
-		res.Err = fmt.Errorf("the expected data file for %v is not specified", caseName(v))
+		res.Msg = fmt.Sprintf("TEST[%s]: failed to verify %v:", v.TestName, caseName(v))
+		res.Err = fmt.Errorf("TEST[%s]: the expected data file for %v is not specified", v.TestName, caseName(v))
 		return res
 	}
 
@@ -190,15 +192,15 @@ func concurrentlyVerifySingleCase(
 		default:
 			if err := verifySingleCase(v.GetExpected(), v.GetActual(), v.Query, v.Get, v); err == nil {
 				if current == 0 {
-					res.Msg = fmt.Sprintf("verified %v\n", caseName(v))
+					res.Msg = fmt.Sprintf("TEST[%s]: verified %v\n", v.TestName, caseName(v))
 				} else {
-					res.Msg = fmt.Sprintf("verified %v, retried %d time(s)\n", caseName(v), current)
+					res.Msg = fmt.Sprintf("TEST[%s]: verified %v, retried %d time(s)\n", v.TestName, caseName(v), current)
 				}
 				return res
 			} else if current != verifyInfo.retryCount {
 				time.Sleep(verifyInfo.interval)
 			} else {
-				res.Msg = fmt.Sprintf("failed to verify %v, retried %d time(s):", caseName(v), current)
+				res.Msg = fmt.Sprintf("TEST[%s]: failed to verify %v, retried %d time(s):", v.TestName, caseName(v), current)
 				res.Err = err
 			}
 		}
@@ -210,6 +212,7 @@ func concurrentlyVerifySingleCase(
 // verifyCasesConcurrently verifies the cases concurrently.
 func verifyCasesConcurrently(cases []*config.VerifyCase, verifyInfo *verifyInfo) error {
 	res := make([]*output.CaseResult, len(cases))
+	var testName string
 	for i := range res {
 		res[i] = &output.CaseResult{}
 	}
@@ -228,6 +231,7 @@ func verifyCasesConcurrently(cases []*config.VerifyCase, verifyInfo *verifyInfo)
 				res[i].Skip = true
 				return
 			default:
+				testName = cases[i].TestName
 				// It's safe to do this, since each goroutine only modifies a single, different, designated slice element.
 				res[i] = concurrentlyVerifySingleCase(ctx, cancel, cases[i], verifyInfo)
 			}
@@ -237,7 +241,7 @@ func verifyCasesConcurrently(cases []*config.VerifyCase, verifyInfo *verifyInfo)
 
 	_, errNum, _ := printer.PrintResult(res)
 	if errNum > 0 {
-		return fmt.Errorf("failed to verify %d case(s)", errNum)
+		return fmt.Errorf("TEST[%s]: failed to verify %d case(s)", testName, errNum)
 	}
 
 	return nil
@@ -252,22 +256,23 @@ func verifyCasesSerially(cases []*config.VerifyCase, verifyInfo *verifyInfo) (er
 			Skip: true,
 		}
 	}
+	var testName string
 
 	defer func() {
 		_, errNum, _ := printer.PrintResult(res)
 		if errNum > 0 {
-			err = fmt.Errorf("failed to verify %d case(s)", errNum)
+			err = fmt.Errorf("TEST[%s]: failed to verify %d case(s)", testName, errNum)
 		}
 	}()
 
 	for idx := range cases {
 		printer.Start()
 		v := cases[idx]
-
+		testName = v.TestName
 		if v.GetExpected() == "" {
 			res[idx].Skip = false
-			res[idx].Msg = fmt.Sprintf("failed to verify %v", caseName(v))
-			res[idx].Err = fmt.Errorf("the expected data file for %v is not specified", caseName(v))
+			res[idx].Msg = fmt.Sprintf("TEST[%s]: failed to verify %v", testName, caseName(v))
+			res[idx].Err = fmt.Errorf("TEST[%s]: the expected data file for %v is not specified", testName, caseName(v))
 
 			printer.Warning(res[idx].Msg)
 			printer.Fail(res[idx].Err.Error())
@@ -278,27 +283,28 @@ func verifyCasesSerially(cases []*config.VerifyCase, verifyInfo *verifyInfo) (er
 		}
 
 		for current := 0; current <= verifyInfo.retryCount; current++ {
+
 			if e := verifySingleCase(v.GetExpected(), v.GetActual(), v.Query, v.Get, v); e == nil {
 				if current == 0 {
-					res[idx].Msg = fmt.Sprintf("verified %v \n", caseName(v))
+					res[idx].Msg = fmt.Sprintf("TEST[%s]: verified %v \n", testName, caseName(v))
 				} else {
-					res[idx].Msg = fmt.Sprintf("verified %v, retried %d time(s)\n", caseName(v), current)
+					res[idx].Msg = fmt.Sprintf("TEST[%s]: verified %v, retried %d time(s)\n", testName, caseName(v), current)
 				}
 				res[idx].Skip = false
 				printer.Success(res[idx].Msg)
 				break
 			} else if current != verifyInfo.retryCount {
 				if current == 0 {
-					printer.UpdateText(fmt.Sprintf("failed to verify %v, will continue retry:", caseName(v)))
+					printer.UpdateText(fmt.Sprintf("TEST[%s]: failed to verify %v, will continue retry:", testName, caseName(v)))
 				} else {
-					printer.UpdateText(fmt.Sprintf("failed to verify %v, retry [%d/%d]", caseName(v), current, verifyInfo.retryCount))
+					printer.UpdateText(fmt.Sprintf("TEST[%s]: failed to verify %v, retry [%d/%d]", testName, caseName(v), current, verifyInfo.retryCount))
 				}
 				time.Sleep(verifyInfo.interval)
 			} else {
-				res[idx].Msg = fmt.Sprintf("failed to verify %v, retried %d time(s):", caseName(v), current)
+				res[idx].Msg = fmt.Sprintf("TEST[%s]: failed to verify %v, retried %d time(s):", testName, caseName(v), current)
 				res[idx].Err = e
 				res[idx].Skip = false
-				printer.UpdateText(fmt.Sprintf("failed to verify %v, retry [%d/%d]", caseName(v), current, verifyInfo.retryCount))
+				printer.UpdateText(fmt.Sprintf("TEST[%s]: failed to verify %v, retry [%d/%d]", testName, caseName(v), current, verifyInfo.retryCount))
 				printer.Warning(res[idx].Msg)
 				printer.Fail(res[idx].Err.Error())
 				if verifyInfo.failFast {
