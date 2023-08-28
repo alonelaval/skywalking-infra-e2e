@@ -2,7 +2,10 @@ package test
 
 import (
 	"fmt"
+	"github.com/apache/skywalking-infra-e2e/commands/cleanup"
+	"github.com/apache/skywalking-infra-e2e/commands/setup"
 	"github.com/apache/skywalking-infra-e2e/internal/components/test"
+	t "github.com/apache/skywalking-infra-e2e/internal/components/trigger"
 	"github.com/apache/skywalking-infra-e2e/internal/config"
 	"github.com/apache/skywalking-infra-e2e/internal/constant"
 	"github.com/apache/skywalking-infra-e2e/internal/logger"
@@ -16,6 +19,44 @@ import (
 var Test = &cobra.Command{
 	Use: "test",
 	RunE: func(cmd *cobra.Command, args []string) error {
+
+		if config.GlobalConfig.Error != nil {
+			return config.GlobalConfig.Error
+		}
+
+		var action t.Action
+		stopAction := func() {
+			if action != nil {
+				action.Stop()
+			}
+		}
+		// If cleanup.on == Always and there is error in setup step, we should defer cleanup step right now.
+		cleanupOnCondition := config.GlobalConfig.E2EConfig.Cleanup.On
+		if cleanupOnCondition == constant.CleanUpAlways {
+			defer doCleanup(stopAction)
+		}
+
+		// setup part
+		err := setup.DoSetupAccordingE2E()
+		if err != nil {
+			return err
+		}
+		logger.Log.Infof("setup part finished successfully")
+
+		if cleanupOnCondition != constant.CleanUpAlways {
+			defer func() {
+				shouldCleanup := (cleanupOnCondition == constant.CleanUpOnSuccess && err == nil) ||
+					(cleanupOnCondition == constant.CleanUpOnFailure && err != nil)
+
+				if !shouldCleanup {
+					logger.Log.Infof("don't cleanup according to config")
+					return
+				}
+
+				doCleanup(stopAction)
+			}()
+		}
+
 		//var acts []test.Action
 		for _, v := range config.GlobalConfig.E2EConfig.Test {
 			action, err := CreateTriggerAction(v)
@@ -54,6 +95,18 @@ var Test = &cobra.Command{
 		}
 		return nil
 	},
+}
+
+func doCleanup(stopAction func()) {
+	if stopAction != nil {
+		stopAction()
+	}
+	setup.DoStopSetup()
+	if err := cleanup.DoCleanupAccordingE2E(); err != nil {
+		logger.Log.Errorf("cleanup part error: %s", err)
+	} else {
+		logger.Log.Infof("cleanup part finished successfully")
+	}
 }
 
 func convertHeaderToMap(header http.Header) map[string]string {
