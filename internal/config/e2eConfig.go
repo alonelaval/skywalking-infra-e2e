@@ -147,6 +147,7 @@ type Test struct {
 	Body     string            `yaml:"body"`
 	Headers  map[string]string `yaml:"headers"`
 	Case     []VerifyCase      `yaml:"cases"`
+	Includes []string          `yaml:"includes"`
 }
 
 type VerifyCase struct {
@@ -170,6 +171,10 @@ type VerifyRetryStrategy struct {
 
 type ReusingCases struct {
 	Cases []VerifyCase `yaml:"cases"`
+}
+
+type ReusingTests struct {
+	Tests []Test `yaml:"tests"`
 }
 
 // GetActual resolves the absolute file path of the actual data file.

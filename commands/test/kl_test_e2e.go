@@ -64,7 +64,7 @@ var Test = &cobra.Command{
 				return fmt.Errorf("[Test] %v", err)
 			}
 			if action == nil {
-				return nil
+				continue
 			}
 			e, header, body := action.Do()
 
@@ -86,7 +86,6 @@ var Test = &cobra.Command{
 				}
 				ca.SetActualHeader(convertHeaderToMap(h))
 				ca.SetActualData(ydata)
-
 			}
 			err = DoVerifyAccordingConfig(cases)
 			if err != nil {

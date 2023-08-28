@@ -65,6 +65,12 @@ func ReadGlobalConfigFile() {
 		return
 	}
 
+	cfgAbsPath, _ := filepath.Abs(util.CfgFile)
+	if err := convertTest(&GlobalConfig.E2EConfig, cfgAbsPath); err != nil {
+		GlobalConfig.Error = fmt.Errorf("unmarshal test config file %s error: %s", util.CfgFile, err)
+		return
+	}
+
 	// convert verify
 	if err := convertVerify(&GlobalConfig.E2EConfig.Verify); err != nil {
 		GlobalConfig.Error = err
@@ -91,6 +97,48 @@ func convertVerify(verify *Verify) error {
 		result = append(result, cases...)
 	}
 	verify.Cases = result
+	return nil
+}
+
+func convertTest(e2eConfig *E2EConfig, baseFile string) error {
+
+	result := make([]Test, 0)
+	for _, test := range e2eConfig.Test {
+		if len(test.Includes) == 0 {
+			result = append(result, test)
+		} else {
+			for _, include := range test.Includes {
+				includePath := util.ResolveAbsWithBase(include, baseFile)
+
+				if !util.PathExist(includePath) {
+					return fmt.Errorf("reuse test config file %s not exist", includePath)
+				}
+
+				data, err := os.ReadFile(includePath)
+				if err != nil {
+					return fmt.Errorf("reuse test config file %s error: %s", includePath, err)
+				}
+
+				r := &ReusingTests{}
+				if err := yaml.Unmarshal(data, r); err != nil {
+					return fmt.Errorf("unmarshal test case config file %s error: %s", includePath, err)
+				}
+
+				result = append(result, r.Tests...)
+
+				//for idx := range r.Tests {
+				//	// using include file path as base path to resolve cases
+				//	cases, err := convertSingleCase(&r.Cases[idx], includePath)
+				//	if err != nil {
+				//		return nil, err
+				//	}
+				//	result = append(result, cases...)
+				//}
+			}
+		}
+	}
+
+	e2eConfig.Test = result
 	return nil
 }
 

@@ -24,26 +24,9 @@ cleanup:
   # always never success failure
   on: always
 
-#trigger:
-#  action: http
-#  interval: 3s
-#  times: 5
-#  url: http://127.0.0.1:${ui_8080}/
-#  method: GET
-#
-#triggers:
-#  - action: http
-#    interval: 3s
-#    times: 5
-#    url: http://www.jd.com
-#    method: GET
-#  - action: http
-#    interval: 3s
-#    times: 5
-#    url: http://www.baidu.com
-#    method: GET
-
 test:
+  - includes:
+    - /Users/hua/koal/devops_workspace/skywalking-infra-e2e/test/test/request.yaml
   - name: test
     action: http
     interval: 3s

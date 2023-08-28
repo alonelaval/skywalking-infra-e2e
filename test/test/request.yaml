@@ -1,0 +1,22 @@
+tests:
+  - name: test2
+    action: http
+    interval: 3s
+    times: 5
+    url: http://127.0.0.1:8028/user/v1/user/serv/detail?workNo=1
+    method: GET
+    body:
+    headers:
+    cases:
+      - name: case11
+        expected: /Users/hua/koal/devops_workspace/skywalking-infra-e2e/test/verify/user.expected.yaml
+        expectedHeaders:
+          Content-Type: application/json
+      - get: http://127.0.0.1:8028/user/v1/user/serv/detail?workNo=1
+        name: case22
+        expected: /Users/hua/koal/devops_workspace/skywalking-infra-e2e/test/verify/user.expected.yaml
+        expectedHeaders:
+          Content-Type: application/json
+      - query: curl http://127.0.0.1:8028/user/v1/user/serv/detail?workNo=1 |yq -P
+        name: case33
+        expected: /Users/hua/koal/devops_workspace/skywalking-infra-e2e/test/verify/user.expected1.yaml
