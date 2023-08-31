@@ -86,8 +86,9 @@ func Execute() error {
 	Root.AddCommand(run.Run)
 	Root.AddCommand(setup.Setup)
 	Root.AddCommand(test.Test)
+	Root.AddCommand(test.T)
 	Root.AddCommand(trigger.Trigger)
-	Root.AddCommand(trigger.Triggers)
+	//Root.AddCommand(trigger.Triggers)
 	Root.AddCommand(verify.Verify)
 	Root.AddCommand(cleanup.Cleanup)
 
