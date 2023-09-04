@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -98,6 +99,9 @@ func verifySingleCase(expectedFile, actualFile, query, get string, verifyCase *c
 		}
 	} else if get != "" {
 		sourceName = get
+
+		get = os.ExpandEnv(get)
+
 		header, origData, err := getData("GET", get, verifyCase.Headers)
 		if err != nil {
 			return fmt.Errorf("TEST[%s]: failed to execute the get: %s, header: %v, resp: %s, error: %v", verifyCase.TestName, get, actualHeader, origData, err)
