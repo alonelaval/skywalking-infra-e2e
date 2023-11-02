@@ -17,10 +17,14 @@
 package test
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/apache/skywalking-infra-e2e/internal/util"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -34,12 +38,13 @@ type httpAction struct {
 	method        string
 	body          string
 	headers       map[string]string
+	uploadFiles   map[string]string
 	executedCount int
 	stopCh        chan struct{}
 	client        *http.Client
 }
 
-func NewHTTPAction(intervalStr string, times int, url, method, body string, headers map[string]string) (Action, error) {
+func NewHTTPAction(intervalStr string, times int, url, method, body string, headers map[string]string, uploadFiles map[string]string) (Action, error) {
 	interval, err := time.ParseDuration(intervalStr)
 	if err != nil {
 		return nil, err
@@ -59,6 +64,7 @@ func NewHTTPAction(intervalStr string, times int, url, method, body string, head
 		method:        strings.ToUpper(method),
 		body:          body,
 		headers:       headers,
+		uploadFiles:   uploadFiles,
 		executedCount: 0,
 		stopCh:        make(chan struct{}),
 		client:        &http.Client{},
@@ -105,16 +111,63 @@ func (h *httpAction) Stop() {
 }
 
 func (h *httpAction) request() (*http.Request, error) {
-	request, err := http.NewRequest(h.method, h.url, strings.NewReader(h.body))
+	var request *http.Request
+	var err error
+	headers := http.Header{}
+	if h.uploadFiles != nil { //上传文件
+
+		body := &bytes.Buffer{}
+		writer := multipart.NewWriter(body)
+
+		for name, path := range h.uploadFiles {
+			file, err := os.Open(util.ResolveAbs(path))
+
+			part, err := writer.CreateFormFile(name, filepath.Base(path))
+			if err != nil {
+				return nil, err
+			}
+			_, err = io.Copy(part, file)
+		}
+
+		// 参数
+		params := getParams(h.body)
+
+		for key, val := range params {
+			_ = writer.WriteField(key, val)
+		}
+		err = writer.Close()
+		if err != nil {
+			return nil, err
+		}
+
+		request, err = http.NewRequest(h.method, h.url, body)
+		headers.Set("Content-Type", writer.FormDataContentType())
+	} else { //不是上传文件的请求
+		request, err = http.NewRequest(h.method, h.url, strings.NewReader(h.body))
+	}
+
 	if err != nil {
 		return nil, err
 	}
-	headers := http.Header{}
+
 	for k, v := range h.headers {
 		headers[k] = []string{v}
 	}
 	request.Header = headers
 	return request, err
+}
+
+func getParams(params string) map[string]string {
+	if params != "" {
+		paramArr := strings.Split(params, "&")
+		paramMap := make(map[string]string)
+		for _, param := range paramArr {
+			kv := strings.Split(param, "=")
+			paramMap[kv[0]] = kv[1]
+		}
+		return paramMap
+	}
+	return nil
 }
 
 func (h *httpAction) execute() (error, http.Header, []byte) {

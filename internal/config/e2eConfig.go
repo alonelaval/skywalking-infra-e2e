@@ -138,16 +138,17 @@ type Trigger struct {
 }
 
 type Test struct {
-	Name     string            `yaml:"name"`
-	Action   string            `yaml:"action"`
-	Interval string            `yaml:"interval"`
-	Times    int               `yaml:"times"`
-	URL      string            `yaml:"url"`
-	Method   string            `yaml:"method"`
-	Body     string            `yaml:"body"`
-	Headers  map[string]string `yaml:"headers"`
-	Case     []VerifyCase      `yaml:"cases"`
-	Includes []string          `yaml:"includes"`
+	Name        string            `yaml:"name"`
+	Action      string            `yaml:"action"`
+	Interval    string            `yaml:"interval"`
+	Times       int               `yaml:"times"`
+	URL         string            `yaml:"url"`
+	Method      string            `yaml:"method"`
+	Body        string            `yaml:"body"`
+	UploadFiles map[string]string `yaml:"uploadFiles"`
+	Headers     map[string]string `yaml:"headers"`
+	Case        []VerifyCase      `yaml:"cases"`
+	Includes    []string          `yaml:"includes"`
 }
 
 type VerifyCase struct {

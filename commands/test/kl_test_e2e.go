@@ -186,6 +186,7 @@ func CreateTriggerAction(cnf config.Test) (test.Action, error) {
 			t.Method,
 			t.Body,
 			t.Headers,
+			t.UploadFiles,
 		)
 	default:
 		return nil, fmt.Errorf("unsupported Test action: %s", t.Action)
