@@ -49,6 +49,25 @@ test:
 #        name: case3
 #        expected: /Users/hua/koal/devops_workspace/skywalking-infra-e2e/test/verify/user.expected1.yaml
 
+  - name: test
+    action: http
+    interval: 3s
+    times: 5
+    url: http://127.0.0.1:10000/file/v1/test/upload
+    method: post
+    body:
+      'userName=huaweitest&email=huaweitest@gmail.com&loginName=huaweitest&workNo=huaweitest'
+#    headers:
+#      Content-Type: application/x-www-form-urlencoded
+    uploadFiles:
+       file1: ../compose/base-compose.yml
+       file2: ../case/user/user.add.yaml
+       file3: ../case/user/user.add.yaml
+    cases:
+      - name: case1
+        expected: /Users/hua/koal/devops_workspace/skywalking-infra-e2e/test/verify/user.add.yaml
+        expectedHeaders:
+          Content-Type: application/json
 
 #  - name: test
 #    action: http
@@ -65,22 +84,22 @@ test:
 #        expected: /Users/hua/koal/devops_workspace/skywalking-infra-e2e/test/verify/user.add.yaml
 #        expectedHeaders:
 #          Content-Type: application/json
-  - name: testJson
-    action: http
-    interval: 3s
-    times: 5
-    url: http://127.0.0.1:8028/tenant/v1/app/add
-    method: post
-    body:
-      '{"name":"test1","remark":"租户权限测试","personName":"test","personMobile":"18222225128"}'
-    headers:
-      Content-Type: application/json
-      work_no: 3
-    cases:
-      - name: case1
-        expected: /Users/hua/koal/devops_workspace/skywalking-infra-e2e/test/verify/tenant.app.add.yaml
-        expectedHeaders:
-          Content-Type: application/json
+#  - name: testJson
+#    action: http
+#    interval: 3s
+#    times: 5
+#    url: http://127.0.0.1:8028/tenant/v1/app/add
+#    method: post
+#    body:
+#      '{"name":"test1","remark":"租户权限测试","personName":"test","personMobile":"18222225128"}'
+#    headers:
+#      Content-Type: application/json
+#      work_no: 3
+#    cases:
+#      - name: case1
+#        expected: /Users/hua/koal/devops_workspace/skywalking-infra-e2e/test/verify/tenant.app.add.yaml
+#        expectedHeaders:
+#          Content-Type: application/json
 
 
 
